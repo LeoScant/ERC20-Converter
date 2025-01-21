@@ -1,26 +1,6 @@
-declare global {
-  interface Window {
-    ethereum: import('ethers').Eip1193Provider & {
-      request: (args: { method: string; params?: string[] }) => Promise<string[]>;
-      on: (event: 'accountsChanged', callback: (accounts: string[]) => void) => void;
-    };
-  }
-}
-
-import { useState, useEffect, useCallback } from 'react';
-import { ethers, BrowserProvider, Contract } from 'ethers';
-import styles from '@/styles/Home.module.css';
-
-const ERC20_ABI = [
-  "function balanceOf(address owner) view returns (uint256)",
-  "function decimals() view returns (uint8)",
-  "function symbol() view returns (string)"
-];
-
-const TOKENS = {
-  EURT: "0xC29806E00A1c05d70A8eD6172BBA0992F01DcD29",
-  TASK: "0xa368D6b0Efb29c167A943bd48765B95109f7b709"
-};
+import { ERC20_ABI, SWAP_ABI, SWAP_ADDRESS, TOKENS } from '@/constants/tokens';
+import { BrowserProvider, Contract, ethers } from 'ethers';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function Home() {
   const [isConnected, setIsConnected] = useState(false);
@@ -29,6 +9,9 @@ export default function Home() {
   const [tokenBalances, setTokenBalances] = useState<{[key: string]: string}>({});
   const [provider, setProvider] = useState<BrowserProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [swapAmount, setSwapAmount] = useState('');
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [conversionRate, setConversionRate] = useState<number>(2);
 
   const getTokenBalance = async (tokenAddress: string, account: string, provider: BrowserProvider) => {
     const contract = new Contract(tokenAddress, ERC20_ABI, provider);
@@ -55,6 +38,11 @@ export default function Home() {
         }
       }
       setTokenBalances(balances);
+
+      // Get conversion rate from Swap contract
+      const swapContract = new Contract(SWAP_ADDRESS, SWAP_ABI, provider);
+      const rate = await swapContract.conversionRate();
+      setConversionRate(Number(rate));
     } finally {
       setIsLoading(false);
     }
@@ -106,11 +94,62 @@ export default function Home() {
     }
   }, [provider, updateBalances]);
 
+  const handleSwap = async () => {
+    if (!provider || !account || !swapAmount) return;
+
+    try {
+      setIsSwapping(true);
+      const signer = await provider.getSigner();
+      const eurtContract = new Contract(TOKENS.EURT, ERC20_ABI, signer);
+      const swapContract = new Contract(SWAP_ADDRESS, SWAP_ABI, signer);
+
+      // Get EURT decimals
+      const eurtDecimals = await eurtContract.decimals();
+
+      // Parse amount with correct decimals
+      const eurtAmount = ethers.parseUnits(swapAmount, eurtDecimals);
+
+      // Check EURT balance
+      const eurtBalance = await eurtContract.balanceOf(account);
+      if (eurtBalance < eurtAmount) {
+        throw new Error(`Insufficient EURT balance. You have ${ethers.formatUnits(eurtBalance, eurtDecimals)} EURT`);
+      }
+
+      // Check if we need to approve
+      const currentAllowance = await eurtContract.allowance(account, SWAP_ADDRESS);
+      if (currentAllowance < eurtAmount) {
+        console.log('Approving EURT spend...');
+        const approveTx = await eurtContract.approve(SWAP_ADDRESS, eurtAmount);
+        await approveTx.wait();
+        console.log('Approval confirmed');
+      }
+
+      // Execute swap
+      console.log('Executing swap...');
+      const swapTx = await swapContract.swapEURTtoTASK(eurtAmount);
+      await swapTx.wait();
+      console.log('Swap completed');
+
+      await updateBalances(account, provider);
+      setSwapAmount('');
+      alert('Swap completed successfully!');
+    } catch (error: unknown) {
+      console.error('Error during swap:', error);
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('Error during swap. Check console for details.');
+      }
+    } finally {
+      setIsSwapping(false);
+    }
+  };
+
   return (
-    <div className={styles.container}>
+    <div className="min-h-screen p-8 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <main className="max-w-2xl mx-auto p-6">
         <h1 className="text-4xl font-bold mb-12 text-center bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
-          Wallet Balance Checker
+          EURT to TASK Converter
         </h1>
         
         {!isConnected ? (
@@ -163,6 +202,50 @@ export default function Home() {
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white dark:bg-gray-800 shadow-lg border border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-4">Swap EURT to TASK</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-gray-600 dark:text-gray-300 mb-2 block">
+                    EURT Amount to Swap
+                  </label>
+                  <input
+                    type="number"
+                    value={swapAmount}
+                    onChange={(e) => setSwapAmount(e.target.value)}
+                    placeholder="Enter EURT amount"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 
+                             bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50">
+                  <p>
+                    You will receive: <span className="font-mono font-medium text-purple-600 dark:text-purple-400">
+                      {Number(swapAmount) / conversionRate} TASK
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Rate: {conversionRate} EURT = 1 TASK
+                  </p>
+                </div>
+                
+
+                <button
+                  onClick={handleSwap}
+                  disabled={!swapAmount || isSwapping || isLoading}
+                  className="w-full px-6 py-3 text-lg font-medium text-white transition-all duration-200 
+                           bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl
+                           hover:from-blue-600 hover:to-purple-600 
+                           focus:ring-2 focus:ring-blue-300 focus:outline-none
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSwapping ? 'Swapping...' : 'Swap Tokens'}
+                </button>
               </div>
             </div>
           </div>
