@@ -2,19 +2,25 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract TASK is ERC20, Ownable {
+contract TASK is ERC20, AccessControl {
     mapping(address => bool) private _blacklist;
     uint8 private constant DECIMALS = 18;
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant BLACKLISTER_ROLE = keccak256("BLACKLISTER_ROLE");
 
-    constructor() ERC20("Task Token", "TASK") Ownable(msg.sender) {}
+    constructor() ERC20("Task Token", "TASK") {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
+        _grantRole(BLACKLISTER_ROLE, msg.sender);
+    }
 
     function decimals() public pure override returns (uint8) {
         return DECIMALS;
     }
 
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
         _mint(to, amount);
     }
 
@@ -22,11 +28,11 @@ contract TASK is ERC20, Ownable {
         _burn(msg.sender, amount);
     }
 
-    function addToBlacklist(address account) public onlyOwner {
+    function addToBlacklist(address account) public onlyRole(BLACKLISTER_ROLE) {
         _blacklist[account] = true;
     }
 
-    function removeFromBlacklist(address account) public onlyOwner {
+    function removeFromBlacklist(address account) public onlyRole(BLACKLISTER_ROLE) {
         _blacklist[account] = false;
     }
 

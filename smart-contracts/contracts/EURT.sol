@@ -2,14 +2,22 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract EURT is ERC20, Ownable {
+contract EURT is ERC20, AccessControl {
     mapping(address => bool) private _blacklist;
     uint8 private constant DECIMALS = 6;
     uint256 private constant INITIAL_SUPPLY = 1_000_000 * 10**6; // 1M tokens
+    
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+    bytes32 public constant BLACKLISTER_ROLE = keccak256("BLACKLISTER_ROLE");
 
-    constructor() ERC20("Euro Token", "EURT") Ownable(msg.sender) {
+    constructor() ERC20("Euro Token", "EURT") {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
+        _grantRole(BURNER_ROLE, msg.sender);
+        _grantRole(BLACKLISTER_ROLE, msg.sender);
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 
@@ -17,19 +25,19 @@ contract EURT is ERC20, Ownable {
         return DECIMALS;
     }
 
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
         _mint(to, amount);
     }
 
-    function burn(uint256 amount) public {
+    function burn(uint256 amount) public onlyRole(BURNER_ROLE) {
         _burn(msg.sender, amount);
     }
 
-    function addToBlacklist(address account) public onlyOwner {
+    function addToBlacklist(address account) public onlyRole(BLACKLISTER_ROLE) {
         _blacklist[account] = true;
     }
 
-    function removeFromBlacklist(address account) public onlyOwner {
+    function removeFromBlacklist(address account) public onlyRole(BLACKLISTER_ROLE) {
         _blacklist[account] = false;
     }
 

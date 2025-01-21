@@ -8,11 +8,15 @@ describe("TASK Token", function () {
   let owner: SignerWithAddress;
   let user1: SignerWithAddress;
   let user2: SignerWithAddress;
+  let MINTER_ROLE: string;
+  let BLACKLISTER_ROLE: string;
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
     const TASK = await ethers.getContractFactory("TASK");
     task = await TASK.deploy();
+    MINTER_ROLE = await task.MINTER_ROLE();
+    BLACKLISTER_ROLE = await task.BLACKLISTER_ROLE();
   });
 
   describe("Basic Token Functionality", function () {
@@ -31,19 +35,20 @@ describe("TASK Token", function () {
   });
 
   describe("Mint and Burn", function () {
-    it("Should allow owner to mint tokens", async function () {
+    it("Should allow minter to mint tokens", async function () {
       const mintAmount = ethers.parseEther("1000");
       await task.mint(user1.address, mintAmount);
       expect(await task.balanceOf(user1.address)).to.equal(mintAmount);
     });
 
-    it("Should not allow non-owner to mint tokens", async function () {
+    it("Should not allow non-minter to mint tokens", async function () {
       const mintAmount = ethers.parseEther("1000");
       await expect(task.connect(user1).mint(user1.address, mintAmount))
-        .to.be.revertedWithCustomError(task, "OwnableUnauthorizedAccount");
+        .to.be.revertedWithCustomError(task, "AccessControlUnauthorizedAccount")
+        .withArgs(user1.address, MINTER_ROLE);
     });
 
-    it("Should allow users to burn their tokens", async function () {
+    it("Should allow anyone to burn their tokens", async function () {
       const mintAmount = ethers.parseEther("1000");
       const burnAmount = ethers.parseEther("500");
       await task.mint(user1.address, mintAmount);
@@ -53,9 +58,15 @@ describe("TASK Token", function () {
   });
 
   describe("Blacklist", function () {
-    it("Should allow owner to blacklist an address", async function () {
+    it("Should allow blacklister to blacklist an address", async function () {
       await task.addToBlacklist(user1.address);
       expect(await task.isBlacklisted(user1.address)).to.be.true;
+    });
+
+    it("Should not allow non-blacklister to blacklist an address", async function () {
+      await expect(task.connect(user1).addToBlacklist(user2.address))
+        .to.be.revertedWithCustomError(task, "AccessControlUnauthorizedAccount")
+        .withArgs(user1.address, BLACKLISTER_ROLE);
     });
 
     it("Should prevent blacklisted address from sending tokens", async function () {
@@ -74,10 +85,17 @@ describe("TASK Token", function () {
         .to.be.revertedWith("TASK: recipient is blacklisted");
     });
 
-    it("Should allow owner to remove address from blacklist", async function () {
+    it("Should allow blacklister to remove address from blacklist", async function () {
       await task.addToBlacklist(user1.address);
       await task.removeFromBlacklist(user1.address);
       expect(await task.isBlacklisted(user1.address)).to.be.false;
+    });
+
+    it("Should not allow non-blacklister to remove address from blacklist", async function () {
+      await task.addToBlacklist(user1.address);
+      await expect(task.connect(user1).removeFromBlacklist(user1.address))
+        .to.be.revertedWithCustomError(task, "AccessControlUnauthorizedAccount")
+        .withArgs(user1.address, BLACKLISTER_ROLE);
     });
   });
 }); 
