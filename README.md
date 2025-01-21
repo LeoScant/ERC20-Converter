@@ -1,6 +1,6 @@
-# AudaSynth Project
+# ERC20-Converter Project
 
-AudaSynth is a decentralized application that enables users to swap between EURT (Euro Token) and TASK tokens. The project consists of a Next.js frontend application and Solidity smart contracts deployed on the Sepolia testnet.
+ERC20-Converter is a decentralized application that enables users to swap between EURT (Euro Token) and TASK tokens. The project consists of a Next.js frontend application and Solidity smart contracts deployed on the Sepolia testnet.
 
 ## Project Structure
 
