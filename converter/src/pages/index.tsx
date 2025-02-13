@@ -1,6 +1,7 @@
 import { ERC20_ABI, SWAP_ABI, SWAP_ADDRESS, TOKENS } from '@/constants/tokens';
 import { BrowserProvider, Contract, ethers } from 'ethers';
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 
 export default function Home() {
   const [isConnected, setIsConnected] = useState(false);
@@ -28,7 +29,13 @@ export default function Home() {
     setIsLoading(true);
     const balances: {[key: string]: string} = {};
     try {
-      for (const [name, address] of Object.entries(TOKENS)) {
+      // Only get EURT and TASK balances
+      const relevantTokens = {
+        EURT: TOKENS.EURT,
+        TASK: TOKENS.TASK
+      };
+      
+      for (const [name, address] of Object.entries(relevantTokens)) {
         try {
           const { formatted, symbol } = await getTokenBalance(address, account, provider);
           balances[name] = `${formatted} ${symbol}`;
@@ -148,15 +155,23 @@ export default function Home() {
   return (
     <div className="min-h-screen p-8 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <main className="max-w-2xl mx-auto p-6">
-        <h1 className="text-4xl font-bold mb-12 text-center bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
-          EURT to TASK Converter
-        </h1>
+        <div className="flex justify-between items-center mb-12">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
+            EURT to TASK Swap
+          </h1>
+          <Link 
+            href="/uniswap"
+            className="text-blue-500 hover:text-blue-600 transition-colors"
+          >
+            TATA/EURT Swap →
+          </Link>
+        </div>
         
         {!isConnected ? (
           <div className="flex flex-col items-center space-y-6">
             <div className="p-8 rounded-2xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
               <p className="text-lg text-center mb-6 text-gray-600 dark:text-gray-300">
-                Connect your MetaMask wallet to view your token balances
+                Connect your MetaMask wallet to start swapping tokens
               </p>
               <button
                 onClick={connectWallet}
@@ -190,14 +205,14 @@ export default function Home() {
                     )}
                   </span>
                 </div>
-                {Object.entries(TOKENS).map(([name]) => (
+                {Object.entries(tokenBalances).map(([name, balance]) => (
                   <div key={name} className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                     <span className="text-gray-600 dark:text-gray-300">{name} Balance</span>
                     <span className="font-mono font-medium text-purple-600 dark:text-purple-400">
                       {isLoading ? (
                         <div className="animate-pulse bg-purple-200 dark:bg-purple-800 h-6 w-24 rounded"></div>
                       ) : (
-                        tokenBalances[name] || '0'
+                        balance
                       )}
                     </span>
                   </div>
@@ -224,8 +239,9 @@ export default function Home() {
                 </div>
                 
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-                  <p>
-                    You will receive: <span className="font-mono font-medium text-purple-600 dark:text-purple-400">
+                  <p className="text-gray-600 dark:text-gray-300">
+                    You will receive:
+                    <span className="font-mono font-medium text-purple-600 dark:text-purple-400 ml-2">
                       {Number(swapAmount) / conversionRate} TASK
                     </span>
                   </p>
@@ -233,7 +249,6 @@ export default function Home() {
                     Rate: {conversionRate} EURT = 1 TASK
                   </p>
                 </div>
-                
 
                 <button
                   onClick={handleSwap}
