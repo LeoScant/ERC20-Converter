@@ -6,8 +6,8 @@ async function main() {
   console.log("Initializing EURT/TATA liquidity pool with account:", deployer.address);
 
   // Indirizzi dei token e del router (sui quali si basa la factory)
-  const TATA_ADDRESS = "0xF9B68BF808d59d53f42defd09Ef355fE29EeCcA2";    // Indirizzo token TATA
-  const EURT_ADDRESS = "0x2963EB3234cdE23de571d65Cfa32b491AEbafcEb";      // Indirizzo token EURT
+  const TATA_ADDRESS = "0x48d5Df607438fD86Ca9754d95714B74Ba9c7f3Be";    // Indirizzo token TATA
+  const EURT_ADDRESS = "0x1fa57f593866D9e36C0B3c253FE87e5bFD5d590D";      // Indirizzo token EURT
   const UNISWAP_ROUTER_ADDRESS = "0x320565d880a1979Af45589D0fe48BbE6673D51D3"; // Router Uniswap V2 (Sepolia)
 
   try {
