@@ -217,7 +217,7 @@ export default function UniswapTrade() {
       // Execute swap
       console.log('Executing swap...');
       const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes
-      const swapTx = await router.swapExactTokensForTokens(
+      const swapTx = await router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
         amountIn,
         minOutput,
         path,
